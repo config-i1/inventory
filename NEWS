@@ -1,0 +1,5 @@
+inventory v0.0.0.9000 (Release data: 2017-04-11)
+==============
+
+Changes:
+* The first function in the package - outp().
