@@ -19,10 +19,10 @@
 #'
 #' @return The list, containing the following, is returned:
 #' \itemize{
-#' \item Orders variance
-#' \item Inventory variance
-#' \item Total (inventory and backlog) cost
-#' \item Realised CSL
+#' \item varOrders - Orders variance
+#' \item varInventory - Inventory variance
+#' \item TC - Total (inventory and backlog) cost
+#' \item CSL - Realised CSL
 #' }
 #'
 #' @examples
@@ -33,22 +33,33 @@ outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
 
   ss_input = ss
 
+  # the length of the whole data
+  N = length(data);
+  NInSample = N-holdout;
+  NInitialisation = NInSample-L;
+
+  # Vector of aggregated data
   aggdata = array(NA, N)
+  # Vector of safety stocks
   ss = array(NA, N)
+  # Vector of orders
   ord = array(NA, N)
+  # ?
   wip = array(NA, N)
+  # Vector of inventory
   inv = array(NA, N)
 
   for (i in 1:(N-L+1)){
     aggdata[i] = sum(data[i:(i+L-1)])
   }
 
-  if (! is.numeric(ss_input)){
+  # If a character is provided in ss, use it
+  if (!is.numeric(ss_input)){
     if (ss_input=="constant"){
-      ss[(N-holdout-L+1):(N-L+1)] = rep(quantile((aggdata[1:(N-holdout-L+1)] - fcs[1:(N-holdout-L+1)]), CSL/100), holdout+1)
+      ss[(NInitialisation+1):(N-L+1)] = rep(quantile((aggdata[1:(NInitialisation+1)] - fcs[1:(NInitialisation+1)]), CSL/100), holdout+1)
     } else if (ss_input=="dynamic"){
       for (i in 1:(holdout+1)){
-        ss[N-holdout-L+i] = quantile((aggdata[1:(N-holdout-L+i)] - fcs[1:(N-holdout-L+i)]), CSL/100)
+        ss[NInitialisation+i] = quantile((aggdata[1:(NInitialisation+i)] - fcs[1:(NInitialisation+i)]), CSL/100)
       }
     }
   }
@@ -60,15 +71,17 @@ outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
   #   }
   # }
 
+  ##### Initialise the thing #####
   for (l in 1:L){
-    wip[N-holdout-L+l] = (L-1)*mean(data[1:(N-holdout-L+l)])
-    inv[N-holdout-L+l] = ss[N-holdout-L+1] + mean(fcs[1:(N-holdout-L+l)]/L) - mean(data[1:(N-holdout-L+l)])
-    ord[N-holdout-L+l] = fcs[N-holdout-L+l+1] + ss[N-holdout-L+1] - inv[N-holdout-L+l] - wip[N-holdout-L+l]
+    wip[NInitialisation+l] = (L-1)*mean(data[1:(NInitialisation+l)])
+    inv[NInitialisation+l] = ss[NInitialisation+1] + mean(fcs[1:(NInitialisation+l)]/L) - mean(data[1:(NInitialisation+l)])
+    ord[NInitialisation+l] = fcs[NInitialisation+l+1] + ss[NInitialisation+1] - inv[NInitialisation+l] - wip[NInitialisation+l]
   }
 
   cost = 0
   demand_met = 0
 
+  ##### Do the calculations #####
   for (t in (N-holdout+1):N){
     # Inventory balance equation
     inv[t] = ord[t-L] + inv[t-1] - data[t]
@@ -97,5 +110,5 @@ outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
   }
   rcsl = demand_met / sum(data[(N-holdout+1):N])
 
-  return(c(var(inv[(N-holdout+1):(N)]), var(ord[(N-holdout+1):(N-1)]), cost, rcsl))
+  return(list(varOrders=var(inv[(N-holdout+1):(N)]), varInventory=var(ord[(N-holdout+1):(N-1)]), TC=cost, CSL=rcsl))
 }
