@@ -5,7 +5,11 @@
 #' Function uses data and rolling origin forecasts in order to do simulations
 #'
 #' @param data Demand observations, both insample and holdout (simulation) windows.
-#' @param fcs Lead time forecasts (aggregated), equal size as demand data.
+#' @param fcs Lead time forecasts (aggregated), equal size as demand data. These are
+#' forecasts produced from each observation i for the period of i+(1:L) and written down to
+#' the element i of the vector.
+#' @param fitted Fitted valus from forecasting model. Needed to initialise the model.
+#' If NULL, then the first forecast value is used.
 #' @param holdout The size of the window where the inventory simulation will be performed.
 #' @param ss Safety stock; single value, vector, or an option between "constant" or "dynamic".
 #' If single value, then ss is considered fixed equal to that value. If vector, then ss is
@@ -29,9 +33,9 @@
 #' #No example here yet.
 #'
 #' @export outp
-outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
+outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
 
-    ss_input = ss
+    ss_input = ss[1]
 
     # the length of the whole data
     N = length(data);
@@ -40,16 +44,22 @@ outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
     # Number of observations in-sample before the initialisation of the model
     NBeforeInit = NInSample-L;
 
+    if(is.null(fitted)){
+        fitted = rep(fcs[1],NInSample)
+    }
+
     # Vector of aggregated data
     aggdata = array(NA, N)
+
+    ###!!! ss, inv, wip and ord are now lagged. The first value there corresponds to NBeforeInit+1 in the data!!!###
     # Vector of safety stocks
-    ss = array(NA, N)
+    ss = array(NA, holdout+L)
     # Vector of orders
-    ord = array(NA, N)
-    # Work in progress?
-    wip = array(NA, N)
+    ord = array(NA, holdout+L)
+    # Work in progress
+    wip = array(NA, holdout+L)
     # Vector of inventory
-    inv = array(NA, N)
+    inv = array(NA, holdout+L)
 
     for (i in 1:(N-L+1)){
         aggdata[i] = sum(data[i:(i+L-1)])
@@ -58,42 +68,44 @@ outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
     # If a character is provided in ss, use it
     if (!is.numeric(ss_input)){
         if (ss_input=="constant"){
-            ss[(NBeforeInit+1):(N-L+1)] = rep(quantile((aggdata[1:(NBeforeInit+1)] - fcs[1:(NBeforeInit+1)]), CSL/100), holdout+1)
+            ss[L+(1:holdout)] = rep(quantile(aggdata[1:(NBeforeInit+1)] - fcs[1:(NBeforeInit+1)], CSL/100), holdout)
         } else if (ss_input=="dynamic"){
-            for (i in 1:(holdout+1)){
-                ss[NBeforeInit+i] = quantile((aggdata[1:(NBeforeInit+i)] - fcs[1:(NBeforeInit+i)]), CSL/100)
+            # Fill in the values for the holdout
+            for (i in 1:(holdout-L)){
+                ss[L+i] = quantile((aggdata[NInSample+(1:i)] - fcs[1:i]), CSL/100)
             }
         }
+        ## Fill in the same ss for the in-sample
+        ss[1:L] = ss[L+1]
     }
-    # else {
-    #   if (length(ss_input)==1){
-    #     ss = rep(ss_input, holdout)
-    #   } else {
-    #     ss
-    #   }
-    # }
+    else {
+        if(length(ss_input)==1){
+            ss = rep(ss_input, holdout+L)
+        }
+    }
 
     ##### Initialise the thing #####
     for (l in 1:L){
-        wip[NBeforeInit+l] = (L-1)*mean(data[1:(NBeforeInit+l)])
-        inv[NBeforeInit+l] = ss[NBeforeInit+1] + mean(fcs[1:(NBeforeInit+l)]/L) - mean(data[1:(NBeforeInit+l)])
-        ord[NBeforeInit+l] = fcs[NBeforeInit+l+1] + ss[NBeforeInit+1] - inv[NBeforeInit+l] - wip[NBeforeInit+l]
+        wip[l] = (L-1)*mean(data[1:(NBeforeInit+l)])
+        inv[l] = ss[1] + mean(fitted[1:(NBeforeInit+l)]/L) - mean(data[1:(NBeforeInit+l)])
+        # This initialisation may be slightly incorrect - it uses only fitted values
+        ord[l] = fitted[NBeforeInit+l] + ss[l] - inv[l] - wip[l]
     }
 
     cost = 0
     demand_met = 0
 
     ##### Do the calculations #####
-    for (t in (NInSample+1):N){
+    for (t in L+(1:holdout)){
         # Inventory balance equation
-        inv[t] = ord[t-L] + inv[t-1] - data[t]
+        inv[t] = ord[t-L] + inv[t-1] - data[NInSample+t-L]
 
         # Work-in-process balance equation
         wip[t] = wip[t-1] - ord[t-L] + ord[t-1]
 
         # Ordering policy
         if (t <= (N-1)){
-            ord[t] = fcs[t+1] + ss[t-L] - inv[t] - wip[t]
+            ord[t] = fcs[t-L+1] + ss[t-L] - inv[t] - wip[t]
         }
 
         # Total inventory and backlog cost
@@ -112,5 +124,5 @@ outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
     }
     rcsl = demand_met / sum(data[(NInSample+1):N])
 
-    return(list(varOrders=var(inv[(NInSample+1):(N)]), varInventory=var(ord[(NInSample+1):(N-1)]), TC=cost, CSL=rcsl))
+    return(list(varOrders=var(inv), varInventory=var(ord[1:(holdout+L-1)]), TC=cost, CSL=rcsl))
 }
