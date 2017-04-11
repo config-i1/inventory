@@ -31,84 +31,84 @@
 #' @export outp
 outp <- function(data, fcs, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
 
-  ss_input = ss
+    ss_input = ss
 
-  # the length of the whole data
-  N = length(data);
-  NInSample = N-holdout;
-  NInitialisation = NInSample-L;
+    # the length of the whole data
+    N = length(data);
+    NInSample = N-holdout;
+    NInitialisation = NInSample-L;
 
-  # Vector of aggregated data
-  aggdata = array(NA, N)
-  # Vector of safety stocks
-  ss = array(NA, N)
-  # Vector of orders
-  ord = array(NA, N)
-  # ?
-  wip = array(NA, N)
-  # Vector of inventory
-  inv = array(NA, N)
+    # Vector of aggregated data
+    aggdata = array(NA, N)
+    # Vector of safety stocks
+    ss = array(NA, N)
+    # Vector of orders
+    ord = array(NA, N)
+    # ?
+    wip = array(NA, N)
+    # Vector of inventory
+    inv = array(NA, N)
 
-  for (i in 1:(N-L+1)){
-    aggdata[i] = sum(data[i:(i+L-1)])
-  }
-
-  # If a character is provided in ss, use it
-  if (!is.numeric(ss_input)){
-    if (ss_input=="constant"){
-      ss[(NInitialisation+1):(N-L+1)] = rep(quantile((aggdata[1:(NInitialisation+1)] - fcs[1:(NInitialisation+1)]), CSL/100), holdout+1)
-    } else if (ss_input=="dynamic"){
-      for (i in 1:(holdout+1)){
-        ss[NInitialisation+i] = quantile((aggdata[1:(NInitialisation+i)] - fcs[1:(NInitialisation+i)]), CSL/100)
-      }
-    }
-  }
-  # else {
-  #   if (length(ss_input)==1){
-  #     ss = rep(ss_input, holdout)
-  #   } else {
-  #     ss
-  #   }
-  # }
-
-  ##### Initialise the thing #####
-  for (l in 1:L){
-    wip[NInitialisation+l] = (L-1)*mean(data[1:(NInitialisation+l)])
-    inv[NInitialisation+l] = ss[NInitialisation+1] + mean(fcs[1:(NInitialisation+l)]/L) - mean(data[1:(NInitialisation+l)])
-    ord[NInitialisation+l] = fcs[NInitialisation+l+1] + ss[NInitialisation+1] - inv[NInitialisation+l] - wip[NInitialisation+l]
-  }
-
-  cost = 0
-  demand_met = 0
-
-  ##### Do the calculations #####
-  for (t in (N-holdout+1):N){
-    # Inventory balance equation
-    inv[t] = ord[t-L] + inv[t-1] - data[t]
-
-    # Work-in-process balance equation
-    wip[t] = wip[t-1] - ord[t-L] + ord[t-1]
-
-    # Ordering policy
-    if (t <= (N-1)){
-      ord[t] = fcs[t+1] + ss[t-L] - inv[t] - wip[t]
+    for (i in 1:(N-L+1)){
+        aggdata[i] = sum(data[i:(i+L-1)])
     }
 
-    # Total inventory and backlog cost
-    if (inv[t]>0){
-      cost = cost + inv[t]
-    } else {
-      cost = cost + abs(inv[t])*(100/(100-CSL) - 1)
+    # If a character is provided in ss, use it
+    if (!is.numeric(ss_input)){
+        if (ss_input=="constant"){
+            ss[(NInitialisation+1):(N-L+1)] = rep(quantile((aggdata[1:(NInitialisation+1)] - fcs[1:(NInitialisation+1)]), CSL/100), holdout+1)
+        } else if (ss_input=="dynamic"){
+            for (i in 1:(holdout+1)){
+                ss[NInitialisation+i] = quantile((aggdata[1:(NInitialisation+i)] - fcs[1:(NInitialisation+i)]), CSL/100)
+            }
+        }
+    }
+    # else {
+    #   if (length(ss_input)==1){
+    #     ss = rep(ss_input, holdout)
+    #   } else {
+    #     ss
+    #   }
+    # }
+
+    ##### Initialise the thing #####
+    for (l in 1:L){
+        wip[NInitialisation+l] = (L-1)*mean(data[1:(NInitialisation+l)])
+        inv[NInitialisation+l] = ss[NInitialisation+1] + mean(fcs[1:(NInitialisation+l)]/L) - mean(data[1:(NInitialisation+l)])
+        ord[NInitialisation+l] = fcs[NInitialisation+l+1] + ss[NInitialisation+1] - inv[NInitialisation+l] - wip[NInitialisation+l]
     }
 
-    # For calculating Realised Customer Service Level
-    if ((inv[t-1]+ord[t-L])>data[t]){
-      demand_met = demand_met + data[t]
-    } else {
-      demand_met = demand_met + (inv[t-1]+ord[t-L])
-    }
-  }
-  rcsl = demand_met / sum(data[(N-holdout+1):N])
+    cost = 0
+    demand_met = 0
 
-  return(list(varOrders=var(inv[(N-holdout+1):(N)]), varInventory=var(ord[(N-holdout+1):(N-1)]), TC=cost, CSL=rcsl))
+    ##### Do the calculations #####
+    for (t in (N-holdout+1):N){
+        # Inventory balance equation
+        inv[t] = ord[t-L] + inv[t-1] - data[t]
+
+        # Work-in-process balance equation
+        wip[t] = wip[t-1] - ord[t-L] + ord[t-1]
+
+        # Ordering policy
+        if (t <= (N-1)){
+            ord[t] = fcs[t+1] + ss[t-L] - inv[t] - wip[t]
+        }
+
+        # Total inventory and backlog cost
+        if (inv[t]>0){
+            cost = cost + inv[t]
+        } else {
+            cost = cost + abs(inv[t])*(100/(100-CSL) - 1)
+        }
+
+        # For calculating Realised Customer Service Level
+        if ((inv[t-1]+ord[t-L])>data[t]){
+            demand_met = demand_met + data[t]
+        } else {
+            demand_met = demand_met + (inv[t-1]+ord[t-L])
+        }
+    }
+    rcsl = demand_met / sum(data[(N-holdout+1):N])
+
+    return(list(varOrders=var(inv[(N-holdout+1):(N)]), varInventory=var(ord[(N-holdout+1):(N-1)]), TC=cost, CSL=rcsl))
 }
