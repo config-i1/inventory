@@ -1,7 +1,7 @@
 Package: inventory
 Title: Package implements functions for inventory simulation
 Version: 0.0.0.9000
-Authors@R: c(person("Fotios", "Petropoulos", role = c("aut", "cre")),
+Authors@R: c(person("Fotios", "Petropoulos", role = c("aut")),
              person("Ivan", "Svetunkov", email = "ivan@svetunkov.ru", role = c("aut", "cre")))
 Description: Inventory simulation functions are here
 Depends: R (>= 3.3.3)
