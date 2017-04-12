@@ -27,3 +27,18 @@ plot(ourData[(inSample+1):obs])
 points(test$ord[-(1:L)],col="red")
 points(test$inv[-(1:L)],col="blue")
 
+
+
+##### Example with Random Walk #####
+library(smooth)
+x <- sim.es("ANN",persistence=1,obs=1000)
+ourData <- x$data
+
+L = 1
+fcs = array(0, holdout)
+for(i in (inSample+1):(obs)){
+  fcs[i-inSample] = ourData[i]*L
+}
+
+outp(data=ourData, fcs=fcs, holdout=holdout, ss=quantile(x$data[(inSample+1):(obs)]-fcs,0.95), L=L, CSL=0.95)
+outp(data=ourData, fcs=fcs, holdout=holdout, ss=quantile(x$data[(inSample+1):(obs)]-fcs,0.5), L=L, CSL=0.5)
