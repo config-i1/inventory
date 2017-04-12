@@ -52,6 +52,11 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     if(is.null(fitted)){
         fitted = rep(fcs[1],NInSample)
     }
+    else{
+        if(length(fitted)==1){
+            fitted = rep(fitted[1],NInSample)
+        }
+    }
 
     # Vector of aggregated data
     aggdata = data
@@ -97,7 +102,7 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     ##### Initialise the thing #####
     for (l in 1:L){
         wip[l] = (L-1)*mean(data[1:(NBeforeInit+l)])
-        inv[l] = mean(fitted[1:(NBeforeInit+l)]/L) - mean(data[1:(NBeforeInit+l)])
+        inv[l] = mean(fitted[1:(NBeforeInit+l)]) - mean(data[1:(NBeforeInit+l)])
         # inv[l] = ss[1] + mean(fitted[1:(NBeforeInit+l)]/L) - mean(data[1:(NBeforeInit+l)])
         # This initialisation may be slightly incorrect - it uses only fitted values
         ord[l] = fitted[NBeforeInit+l] + ss[l] - inv[l] - wip[l]
@@ -134,9 +139,10 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
         # } else {
         #     demand_met = demand_met + inv[t-1]+ord[t-L]
         # }
-        demand_met = demand_met + min(data[t],inv[t-1]+ord[t-L])
+        demand_met = demand_met + min(data[NBeforeInit+t],inv[t-1]+ord[t-L])
     }
     rcsl = demand_met / sum(data[(NInSample+1):N])
+
 
     return(list(varOrders=var(inv), varInventory=var(ord[1:(holdout+L-1)]), TC=cost, CSL=rcsl))
 }
