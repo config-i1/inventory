@@ -4,12 +4,18 @@
 \alias{outp}
 \title{Order-Up-To level inventory simulation function}
 \usage{
-outp(data, fcs, holdout, ss = c("constant", "dynamic"), L = 1, CSL = 95)
+outp(data, fcs, fitted = NULL, holdout, ss = c("constant", "dynamic"),
+  L = 1, CSL = 0.95)
 }
 \arguments{
 \item{data}{Demand observations, both insample and holdout (simulation) windows.}
 
-\item{fcs}{Lead time forecasts (aggregated), equal size as demand data.}
+\item{fcs}{Lead time forecasts (aggregated), equal size as demand data. These are
+forecasts produced from each observation i for the period of i+(1:L) and written down to
+the element i of the vector.}
+
+\item{fitted}{Fitted valus from forecasting model. Needed to initialise the model.
+If NULL, then the first forecast value is used.}
 
 \item{holdout}{The size of the window where the inventory simulation will be performed.}
 
@@ -28,10 +34,10 @@ least 20 observations are available in the insample (length of data minus holdou
 \value{
 The list, containing the following, is returned:
 \itemize{
-\item Orders variance
-\item Inventory variance
-\item Total (inventory and backlog) cost
-\item Realised CSL
+\item varOrders - Orders variance
+\item varInventory - Inventory variance
+\item TC - Total (inventory and backlog) cost
+\item CSL - Realised CSL
 }
 }
 \description{
