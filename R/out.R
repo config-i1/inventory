@@ -49,7 +49,7 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     }
 
     # Vector of aggregated data
-    aggdata = array(NA, N)
+    aggdata = data
 
     ###!!! ss, inv, wip and ord are now lagged. The first value there corresponds to NBeforeInit+1 in the data!!!###
     # Vector of safety stocks
@@ -61,21 +61,24 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     # Vector of inventory
     inv = array(NA, holdout+L)
 
-    for (i in 1:(N-L+1)){
-        aggdata[i] = sum(data[i:(i+L-1)])
+    if(L>1){
+        for (i in 1:(N-L+1)){
+            aggdata[i] = sum(data[i:(i+L-1)])
+        }
     }
 
     # If a character is provided in ss, use it
     if (!is.numeric(ss_input)){
         if (ss_input=="constant"){
-            ss[L+(1:holdout)] = rep(quantile(aggdata[1:(NBeforeInit+1)] - fcs[1:(NBeforeInit+1)], CSL/100), holdout)
+            # Here we use only the data from the in-sample
+            ss[L+(1:holdout)] = rep(quantile(aggdata[1:NInSample] - L*fitted[1:NInSample], CSL/100), holdout)
         } else if (ss_input=="dynamic"){
             # Fill in the values for the holdout
             for (i in 1:(holdout-L)){
                 ss[L+i] = quantile((aggdata[NInSample+(1:i)] - fcs[1:i]), CSL/100)
             }
         }
-        ## Fill in the same ss for the in-sample
+        ## Fill in the same ss for the initialisation part
         ss[1:L] = ss[L+1]
     }
     else {
@@ -98,10 +101,12 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     ##### Do the calculations #####
     for (t in L+(1:holdout)){
         # Inventory balance equation
+        # max is needed for cases, when inv or ord become negative
         inv[t] = ord[t-L] + inv[t-1] - data[NInSample+t-L]
 
         # Work-in-process balance equation
         wip[t] = wip[t-1] - ord[t-L] + ord[t-1]
+        # wip[t] = wip[t-1] - ord[t-L] + sum(ord[t-(1:(L-1))])
 
         # Ordering policy
         if (t <= (N-1)){
@@ -116,11 +121,12 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
         }
 
         # For calculating Realised Customer Service Level
-        if ((inv[t-1]+ord[t-L])>data[t]){
-            demand_met = demand_met + data[t]
-        } else {
-            demand_met = demand_met + (inv[t-1]+ord[t-L])
-        }
+        # if ((inv[t-1]+ord[t-L])>data[t]){
+        #     demand_met = demand_met + data[t]
+        # } else {
+        #     demand_met = demand_met + inv[t-1]+ord[t-L]
+        # }
+        demand_met = demand_met + min(data[t],inv[t-1]+ord[t-L])
     }
     rcsl = demand_met / sum(data[(NInSample+1):N])
 
