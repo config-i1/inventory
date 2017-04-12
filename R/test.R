@@ -20,3 +20,10 @@ x <- c(6,3,4,4,5,7,4,3,4,5,6,6,7,8,3)
 ftd <- 5
 fcs <- rep(10,8)
 outp(data=x, fcs=fcs, fitted=ftd, holdout=8, ss=3.62845894088858, L=2, CSL=0.95)
+
+
+test <- outp(data=ourData, fcs=fcs, holdout=holdout, ss=qnorm(0.5,0,20), L=L, CSL=0.5)
+plot(ourData[(inSample+1):obs])
+points(test$ord[-(1:L)],col="red")
+points(test$inv[-(1:L)],col="blue")
+
