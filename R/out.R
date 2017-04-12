@@ -143,6 +143,6 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     }
     rcsl = demand_met / sum(data[(NInSample+1):N])
 
-
-    return(list(varOrders=var(inv), varInventory=var(ord[1:(holdout+L-1)]), TC=cost, CSL=rcsl))
+    returnedList <- list(varOrders=var(inv), varInventory=var(ord[1:(holdout+L-1)]), TC=cost, CSL=rcsl, ord=ord, inv=inv, wip=wip)
+    return(structure(returnedList,class="inventory"))
 }
