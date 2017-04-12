@@ -33,9 +33,14 @@
 #' #No example here yet.
 #'
 #' @export outp
-outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=1, CSL=95){
+outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=1, CSL=0.95){
 
-    ss_input = ss[1]
+    ss_input = ss
+
+    # If user provides 95 instead of 0.95, fix it.
+    if(CSL>1){
+        CSL <- CSL/100;
+    }
 
     # the length of the whole data
     N = length(data);
@@ -68,20 +73,22 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     }
 
     # If a character is provided in ss, use it
-    if (!is.numeric(ss_input)){
-        if (ss_input=="constant"){
+    if(!is.numeric(ss_input)){
+        # This means that only the first letter can be provided instead of the whole word
+        ss_input = substr(ss_input[1],1,1)
+        if (ss_input=="c"){
             # Here we use only the data from the in-sample
-            ss[L+(1:holdout)] = rep(quantile(aggdata[1:NInSample] - L*fitted[1:NInSample], CSL/100), holdout)
-        } else if (ss_input=="dynamic"){
+            ss[L+(1:holdout)] = rep(quantile(aggdata[1:NInSample] - L*fitted[1:NInSample], CSL), holdout)
+        } else if (ss_input=="d"){
             # Fill in the values for the holdout
             for (i in 1:(holdout-L)){
-                ss[L+i] = quantile((aggdata[NInSample+(1:i)] - fcs[1:i]), CSL/100)
+                ss[L+i] = quantile((aggdata[NInSample+(1:i)] - fcs[1:i]), CSL)
             }
         }
         ## Fill in the same ss for the initialisation part
         ss[1:L] = ss[L+1]
     }
-    else {
+    else{
         if(length(ss_input)==1){
             ss = rep(ss_input, holdout+L)
         }
@@ -90,7 +97,8 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     ##### Initialise the thing #####
     for (l in 1:L){
         wip[l] = (L-1)*mean(data[1:(NBeforeInit+l)])
-        inv[l] = ss[1] + mean(fitted[1:(NBeforeInit+l)]/L) - mean(data[1:(NBeforeInit+l)])
+        inv[l] = mean(fitted[1:(NBeforeInit+l)]/L) - mean(data[1:(NBeforeInit+l)])
+        # inv[l] = ss[1] + mean(fitted[1:(NBeforeInit+l)]/L) - mean(data[1:(NBeforeInit+l)])
         # This initialisation may be slightly incorrect - it uses only fitted values
         ord[l] = fitted[NBeforeInit+l] + ss[l] - inv[l] - wip[l]
     }
@@ -102,22 +110,22 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
     for (t in L+(1:holdout)){
         # Inventory balance equation
         # max is needed for cases, when inv or ord become negative
-        inv[t] = ord[t-L] + inv[t-1] - data[NInSample+t-L]
+        inv[t] = inv[t-1] + ord[t-L] - data[NBeforeInit+t]
 
         # Work-in-process balance equation
-        wip[t] = wip[t-1] - ord[t-L] + ord[t-1]
+        wip[t] = wip[t-1] + ord[t-1] - ord[t-L]
         # wip[t] = wip[t-1] - ord[t-L] + sum(ord[t-(1:(L-1))])
 
         # Ordering policy
-        if (t <= (N-1)){
-            ord[t] = fcs[t-L+1] + ss[t-L] - inv[t] - wip[t]
-        }
+        # if (t <= (N-1)){
+        ord[t] = fcs[t-L] + ss[t-L] - inv[t] - wip[t]
+        # }
 
         # Total inventory and backlog cost
         if (inv[t]>0){
             cost = cost + inv[t]
         } else {
-            cost = cost + abs(inv[t])*(100/(100-CSL) - 1)
+            cost = cost + abs(inv[t])*(1/(1-CSL) - 1)
         }
 
         # For calculating Realised Customer Service Level
