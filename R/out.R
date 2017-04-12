@@ -116,6 +116,7 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
         # Inventory balance equation
         # max is needed for cases, when inv or ord become negative
         inv[t] = inv[t-1] + ord[t-L] - data[NBeforeInit+t]
+        # inv[t] = max(inv[t-1] + ord[t-L] - data[NBeforeInit+t],0)
 
         # Work-in-process balance equation
         wip[t] = wip[t-1] + ord[t-1] - ord[t-L]
