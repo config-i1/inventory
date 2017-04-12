@@ -140,7 +140,7 @@ outp <- function(data, fcs, fitted=NULL, holdout, ss=c("constant","dynamic"), L=
         # } else {
         #     demand_met = demand_met + inv[t-1]+ord[t-L]
         # }
-        demand_met = demand_met + min(data[NBeforeInit+t],inv[t-1]+ord[t-L])
+        demand_met = demand_met + min(data[NBeforeInit+t],max(0,inv[t-1]+ord[t-L]))
     }
     rcsl = demand_met / sum(data[(NInSample+1):N])
 
